@@ -1,0 +1,20 @@
+body { font: -apple-system-body; background: #f2f2f7; margin: 0; padding: 32px 12px 18px; }
+body.nightMode, .nightMode body, body.night_mode { background: black; color: white; }
+table.kioku-decks { display:block; width:min(100%,48rem); box-sizing:border-box; padding:0 14px; background:white; border-radius:24px; text-align:start; }
+.nightMode .kioku-decks, .night_mode .kioku-decks { background:#1c1c1e; }
+.kioku-decks tbody { display:block; }
+.kioku-decks tr:has(th) { display:none; }
+.kioku-decks tr.deck { display:flex; align-items:center; min-height:66px; border-bottom:1px solid #80808045; background:transparent; }
+.kioku-decks tr.deck:last-child { border:0; }
+.kioku-decks td.decktd { position:relative; display:block; flex:1; min-width:0; padding:10px 0 10px calc(34px + var(--indent)); }
+.kioku-decks a.deck { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:17px; font-weight:600; color:inherit; }
+.kioku-decks a.collapse { position:absolute; inset-inline-start:var(--indent); top:50%; transform:translateY(-50%); width:32px; line-height:44px; text-align:center; color:#8e8e93; }
+.kioku-decks tr.deck td:not(.decktd):not(.opts) { display:none; }
+.kioku-decks .opts { width:22px; opacity:.65; }
+.kioku-counts { margin-top:5px; font-size:12px; line-height:1.4; color:#787880; }
+.kioku-counts strong { color:#38383a; }
+.nightMode .kioku-counts strong { color:#f2f2f7; }
+.kioku-counts span:has(.new-count) { color:#4189de; }
+.kioku-counts span:has(.learn-count) { color:#df655e; }
+.kioku-counts span:has(.review-count) { color:#46a76b; }
+@media(max-width:370px) { .kioku-counts {font-size:11px} }

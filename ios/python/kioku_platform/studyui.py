@@ -3,7 +3,8 @@ from ctypes import c_void_p
 import logging
 
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QMenu, QWidget
+from pathlib import Path
 from rubicon.objc import NSObject, ObjCClass, ObjCInstance, SEL, objc_method
 
 from .webview import prop
@@ -15,10 +16,10 @@ class KiokuDeckActionTarget(NSObject):
         import aqt
 
         index = int(prop(sender, "tag"))
-        command = self.commands[index]
-        if aqt.mw.state == "deckBrowser":
-            QTimer.singleShot(0, lambda: aqt.mw.state == "deckBrowser"
-                              and aqt.mw.deckBrowser._linkHandler(command))
+        callback = self.commands[index]
+        state = aqt.mw.state
+        QTimer.singleShot(0, lambda: aqt.mw.state == state and callback())
+
 
 
 class DeckBar(QWidget):
@@ -38,15 +39,16 @@ class DeckBar(QWidget):
         if links == self.links:
             return
         item_class = ObjCClass("UIBarButtonItem")
-        symbols = {"shared": "globe", "create": "plus", "import": "square.and.arrow.down"}
+
         items = []
         commands = []
-        for _, command, title in links:
-            if items:
+        for symbol, title, command in links:
+            if command is None and not title:
                 items.append(item_class.alloc().initWithBarButtonSystemItem_target_action_(
-                    5, None, None))  # flexible space
-            image = (ObjCClass("UIImage").systemImageNamed_(symbols[command])
-                     if command in symbols else None)
+                    5, None, None))
+                continue
+            image = (ObjCClass("UIImage").systemImageNamed_(symbol)
+                     if symbol else None)
             if image is None:
                 item = item_class.alloc().initWithTitle_style_target_action_(
                     title, 0, self.target, SEL("activate:"))
@@ -54,6 +56,9 @@ class DeckBar(QWidget):
                 item = item_class.alloc().initWithImage_style_target_action_(
                     image, 0, self.target, SEL("activate:"))
             item.setAccessibilityLabel_(title)
+            if command is None:
+                item.setTintColor_(prop(ObjCClass("UIColor"), "systemBlueColor"))
+            item.setEnabled_(command is not None)
             item.setTag_(len(commands))
             commands.append(command)
             items.append(item)
@@ -67,14 +72,73 @@ def install(mw):
 
     bar = DeckBar(mw)
     mw.mainLayout.addWidget(bar)
-    classic = mw.form.menuqt_accel_view.addAction("Use original deck toolbar")
+    classic = mw.form.menuqt_accel_view.addAction("Use original Anki toolbars")
     classic.setCheckable(True)
     classic.setChecked(bool(mw.pm.meta.get("kioku_original_deck_toolbar", False)))
 
+    from aqt.utils import openLink
+    from PyQt6.QtCore import QPoint
+    top = DeckBar(mw)
+    mw.mainLayout.insertWidget(0, top)
+    space = (None, "", None)
+
+    def popup(entries, widget):
+        menu = QMenu(mw)
+        for title, callback in entries:
+            menu.addAction(title, callback)
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.popup(widget.mapToGlobal(QPoint(12, widget.height() // 2)))
+
+    def add_export():
+        entries = [("Add Notes", mw.onAddCard)]
+        for _, command, label in mw.deckBrowser.drawLinks:
+            entries.append((label, lambda checked=False, cmd=command: mw.deckBrowser._linkHandler(cmd)))
+        entries.append(("Export", lambda: mw.onExport()))
+        popup(entries, bar)
+
+    def settings():
+        menu = QMenu(mw)
+        menu.addAction("Preferences", mw.onPrefs)
+        for action in mw.menuBar().actions():
+            if action.menu():
+                menu.addMenu(action.menu())
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.popup(top.mapToGlobal(QPoint(top.width()-48, top.height())))
+
+    deck_header = [
+        ("questionmark.circle", "Help", lambda: openLink("https://docs.ankiweb.net/")),
+        ("chart.xyaxis.line", "Statistics", mw.onStats), space,
+        (None, "Decks", None), space,
+        ("magnifyingglass", "Search", mw.onBrowse),
+        ("gearshape", "Settings", settings),
+    ]
+    review_header = [
+        (None, "Decks", lambda: mw.moveToState("deckBrowser")), space,
+        (None, "Add", mw.onAddCard), space, (None, "Edit", mw.onEditCurrent),
+        space, (None, "Browse", mw.onBrowse),
+    ]
+    deck_footer = [(None, "Add/Export", add_export), space,
+                   (None, "Synchronize", mw.on_sync_button_clicked)]
+    saved_menu = None
+
     def update(*_):
-        active = mw.state == "deckBrowser" and not classic.isChecked()
+        nonlocal saved_menu
+        active = mw.state in ("deckBrowser", "review") and not classic.isChecked()
+        decks = active and mw.state == "deckBrowser"
         if active:
-            bar.configure(tuple(tuple(link) for link in mw.deckBrowser.drawLinks))
+            top.configure(deck_header if decks else review_header)
+            if saved_menu is None:
+                saved_menu = mw.menuBar().isVisible()
+            mw.menuBar().setVisible(False)
+            mw.toolbarWeb.setVisible(False)
+            top.show()
+        elif saved_menu is not None:
+            top.hide()
+            mw.toolbarWeb.setVisible(True)
+            mw.menuBar().setVisible(saved_menu)
+            saved_menu = None
+        if decks:
+            bar.configure(deck_footer)
             mw.bottomWeb.setVisible(False)
             bar.show()
         elif not bar.isHidden():
@@ -100,19 +164,23 @@ def register():
     from aqt.deckbrowser import DeckBrowser
     from aqt.reviewer import ReviewerBottomBar
 
+    directory = Path(__file__).parent
+    deck_css = (directory / "decks.css").read_text()
+    deck_js = (directory / "decks.js").read_text()
+
     def style(content, context):
         if isinstance(context, DeckBrowser):
-            content.head += """<style>
-            body { font: -apple-system-body; }
-            center > table { width: min(100%, 48rem); border-spacing: 0; }
-            tr.deck td { height: 48px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
-            tr.deck a.deck { font-weight: 600; overflow-wrap: anywhere; }
-            tr.deck .count { font-variant-numeric: tabular-nums; }
-            #studiedToday { font: -apple-system-footnote; }
-            </style>"""
-        elif isinstance(context, ReviewerBottomBar):
+            content.head += "<style>" + deck_css + "</style>"
+            content.body += "<script>" + deck_js + "</script>"
+        elif isinstance(context, ReviewerBottomBar) and not aqt.mw.pm.meta.get("kioku_original_deck_toolbar", False):
             content.head += """<style>
             button { min-height: 44px; border-radius: 12px; font: -apple-system-body; }
+            .nightMode, .night_mode { background: #141416; }
+            #innertable .stat:first-child { display: none; }
+            #ansbut:has(.stattxt span) { font-size: 0; border: none; background: transparent; box-shadow: none; }
+            #ansbut .stattxt { font: -apple-system-title2; }
+            #innertable .stat:last-child button { font-size: 0; }
+            #innertable .stat:last-child button::before { content: "⚙"; color: #89cafa; font-size: 24px; }
             button[data-ease] { padding-inline: clamp(2px, 1vw, 8px); }
             </style>"""
 
