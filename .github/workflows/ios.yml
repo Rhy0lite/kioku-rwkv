@@ -23,6 +23,10 @@ on:
     paths: ["ios/**", "shared/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
     inputs:
+      export_theos:
+        description: "Also export the WSL/Theos link kit"
+        type: boolean
+        default: false
       tag:
         description: "Release tag to publish to (empty: build only)"
         required: false
@@ -99,7 +103,7 @@ jobs:
 
       - name: Build
         env:
-          KIOKU_THEOS_KIT: 1
+          KIOKU_THEOS_KIT: ${{ inputs.export_theos && '1' || '0' }}
           KIOKU_VERSION: ${{ steps.version.outputs.version }}
         run: |
           # CFBundleVersion must be numeric
@@ -110,10 +114,21 @@ jobs:
           (cd dist && shasum -a 256 ./*.ipa > SHA256SUMS-ios.txt)
           ls -l dist
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kioku-iOS-${{ steps.version.outputs.version }}
+          path: |
+            ios/dist/*.ipa
+            ios/dist/SHA256SUMS-ios.txt
+          if-no-files-found: error
+          compression-level: 0
+
       - name: Export WSL link inputs
+        if: inputs.export_theos
         run: python3 theos/export_kit.py build/xcode-dev build/theos-kit dist/kioku-theos-kit.tar.gz
 
       - uses: actions/upload-artifact@v4
+        if: inputs.export_theos
         with:
           name: kioku-theos-kit
           path: ios/dist/kioku-theos-kit.tar.gz
@@ -137,14 +152,6 @@ jobs:
             --download "https://github.com/$REPO/releases/download/$TAG/$(basename "$ipa")" \
             > dist/altstore.json
           cat dist/altstore.json
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Kioku-iOS-${{ steps.version.outputs.version }}
-          path: |
-            ios/dist/*.ipa
-            ios/dist/SHA256SUMS-ios.txt
-          compression-level: 0
 
       - name: Attach to the release
         if: steps.version.outputs.tag != ''

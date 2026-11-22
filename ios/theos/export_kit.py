@@ -1,5 +1,6 @@
 """Export arm64 inputs selected by the Apple linker for the WSL relink."""
 import argparse
+import os
 import pathlib
 import re
 import shutil
@@ -14,8 +15,13 @@ def output(*args):
 
 
 def inputs(linkmap):
-    section = linkmap.split("# Object files:", 1)[1].split("# Sections:", 1)[0]
-    for line in section.splitlines():
+    for line in linkmap:
+        if line.rstrip() == b"# Object files:":
+            break
+    for raw_line in linkmap:
+        if raw_line.startswith(b"#"):
+            break
+        line = os.fsdecode(raw_line)
         match = re.match(r"^\[\s*\d+\]\s+(.+)$", line)
         if match:
             path = match[1].strip()
@@ -38,7 +44,9 @@ def export(build, kit, archive):
     flags = []
     entry = None
     linkage = ""
-    for index, path in enumerate(dict.fromkeys(inputs((build / "kioku-arm64.map").read_text()))):
+    with (build / "kioku-arm64.map").open("rb") as linkmap:
+        paths = dict.fromkeys(inputs(linkmap))
+    for index, path in enumerate(paths):
         if ".sdk/" in str(path):
             continue
         if path.name == "main.o" and "Kioku.build" in path.parts:

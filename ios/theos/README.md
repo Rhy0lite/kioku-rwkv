@@ -4,7 +4,7 @@ Use WSL 2 Ubuntu with Theos for Linux installed, THEOS exported, and an arm64 iP
 
 ## Get the matching dependency kit
 
-Place this source tree in your own GitHub repository. Run the **iOS IPA** workflow on that revision and download its **kioku-theos-kit** artifact. GitHub wraps the tarball in a zip. The macOS job compiles the native dependencies, Qt plugins, resources and Python modules, then exports link inputs. You can reuse the same kit for launcher edits. Regenerate it after changing native dependencies, Python packages, resources or the pinned Anki revision.
+Place this source tree in your own GitHub repository. Run the **iOS IPA** workflow manually on that revision with **Also export the WSL/Theos link kit** selected and download its **kioku-theos-kit** artifact. GitHub wraps the tarball in a zip. The macOS job compiles the native dependencies, Qt plugins, resources and Python modules, then exports link inputs. You can reuse the same kit for launcher edits. Regenerate it after changing native dependencies, Python packages, resources or the pinned Anki revision.
 
 ## Build in WSL
 
