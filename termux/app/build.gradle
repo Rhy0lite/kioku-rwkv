@@ -1,0 +1,64 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'io.ankidesk'
+    compileSdk 36
+    ndkVersion project.findProperty('termuxX11NdkVersion')
+
+    defaultConfig {
+        // Must equal the package name the bundled runtime was built or patched for
+        // (/data/data/<applicationId>/<ankideskRootfsDir>/usr), see gradle.properties.
+        applicationId project.property('ankideskApplicationId')
+        buildConfigField 'String', 'ROOTFS_DIR', "\"${project.property('ankideskRootfsDir')}\""
+        minSdk 24
+        targetSdk 36
+        // CI passes the release tag's version (v0.2.0 -> 0.2.0) and run number.
+        versionCode((project.findProperty('kiokuVersionCode') ?: '1') as int)
+        versionName project.findProperty('kiokuVersionName') ?: '0.1.0-anki26.09.4'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // Release key from the environment (GitHub Actions secrets, see
+    // .github/workflows/release.yml); without it releases use the debug key.
+    // Keep the same key for every release, or Android refuses the update.
+    def keystore = System.getenv('KIOKU_KEYSTORE')
+    signingConfigs {
+        if (keystore) {
+            release {
+                storeFile file(keystore)
+                storePassword System.getenv('KIOKU_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KIOKU_KEY_ALIAS')
+                keyPassword System.getenv('KIOKU_KEY_PASSWORD') ?: System.getenv('KIOKU_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    // The X server is started with app_process and loads libXlorie.so straight
+    // out of the APK, so native libraries must stay uncompressed.
+    packaging.jniLibs.useLegacyPackaging false
+    // The bootstrap is already a deflated zip.
+    androidResources.noCompress += ['zip']
+}
+
+dependencies {
+    implementation project(':lorie')
+    implementation 'androidx.core:core:1.13.1'
+    // MainActivity (from :lorie) extends AppCompatActivity.
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+}

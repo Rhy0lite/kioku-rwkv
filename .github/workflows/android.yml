@@ -1,0 +1,169 @@
+# Builds the native Android variant (android/) and publishes the APK to a
+# GitHub release.
+#
+# - Push a tag like v0.2.0: release.yml runs this and attaches
+#   Kioku-Android-0.2.0-arm64.apk to the draft release of that tag.
+# - Push to main with changes in android/ or shared/: builds only, the result is
+#   a workflow artifact.
+# - Run it by hand (Actions → Android APK → Run workflow): builds and keeps the
+#   APK as a workflow artifact; give a tag to attach it to that
+#   release too (the release must exist).
+#
+# Signing: add these repository secrets to sign with your own key. Keep the same
+# key for every release, or Android refuses to update an installed Kioku.
+#   KIOKU_KEYSTORE_BASE64    base64 of the .jks file (base64 -w0 kioku.jks)
+#   KIOKU_KEYSTORE_PASSWORD  store password
+#   KIOKU_KEY_ALIAS          key alias
+#   KIOKU_KEY_PASSWORD       key password (if different from the store password)
+# Without them the APK is signed with a throwaway debug key.
+name: Android APK
+
+on:
+  push:
+    # build only (no release) when the android code changes on main
+    branches: [main]
+    paths: ["android/**", "shared/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish to (empty: build only)"
+        required: false
+        default: ""
+  # release.yml: builds for the draft release of a tag
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      NDK_VERSION: "28.2.13676358"
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler ninja-build zip rsync swig pkg-config > /dev/null
+          rustup --version
+          # cryptography for add-ons (shared/tools/build_wheels.sh)
+          rustup target add aarch64-linux-android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Android SDK platform, build tools and NDK
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Cache Qt and Python
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/deps/qt
+            android/deps/python-android-*
+          key: android-deps-${{ hashFiles('shared/versions.env') }}
+
+      # programs and packages for add-ons (shared/tools/build_programs.sh,
+      # build_wheels.sh): FFmpeg and co. take a while to build
+      - name: Cache add-on programs and packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/programs/src
+            build/programs/data
+            build/programs/android
+            build/wheels/android
+          key: android-programs-${{ hashFiles('shared/versions.env', 'shared/programs/*', 'shared/tools/build_programs.sh', 'shared/tools/build_wheels.sh') }}
+
+      - name: Cache Rust builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            android/deps/anki/target
+          key: android-rust-${{ hashFiles('shared/versions.env') }}-${{ github.run_id }}
+          restore-keys: android-rust-${{ hashFiles('shared/versions.env') }}-
+
+      - name: Version
+        id: version
+        env:
+          tag: ${{ inputs.tag }}
+        run: |
+          if [ -n "$tag" ]; then version="${tag#v}"; else version="0.0.0-${GITHUB_SHA::7}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KIOKU_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KIOKU_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KIOKU_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KIOKU_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::No KIOKU_KEYSTORE_BASE64 secret; the APK is signed with a debug key."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/kioku.jks"
+          {
+            echo "KIOKU_KEYSTORE=$RUNNER_TEMP/kioku.jks"
+            echo "KIOKU_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "KIOKU_KEY_ALIAS=$KEY_ALIAS"
+            echo "KIOKU_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          } >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          KIOKU_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          KIOKU_BUILD=$GITHUB_RUN_NUMBER tools/build.sh
+          mkdir -p dist
+          cp "build/Kioku-$KIOKU_VERSION.apk" "dist/Kioku-Android-$KIOKU_VERSION-arm64.apk"
+          (cd dist && sha256sum ./*.apk > SHA256SUMS-android.txt)
+          ls -l dist
+
+      - name: Build log
+        if: failure()
+        run: tail -200 build/build.log || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kioku-Android-${{ steps.version.outputs.version }}
+          path: android/dist/
+          compression-level: 0
+
+      - name: Attach to the release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release upload "$TAG" dist/*.apk dist/SHA256SUMS-android.txt --clobber -R "$GITHUB_REPOSITORY"

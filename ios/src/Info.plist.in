@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>CFBundleName</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_NAME}</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>${QT_INTERNAL_DOLLAR_VAR}{PRODUCT_NAME}</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+
+    <key>CFBundleExecutable</key>
+    <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+
+    <key>CFBundleVersion</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
+
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <!-- kioku:// links (kioku/urlscheme.py): add notes, sync, search -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>kioku</string>
+            </array>
+        </dict>
+    </array>
+
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
+    </dict>
+
+    <!-- add-ons that record (e.g. AVAudioRecorder through rubicon-objc):
+         without it iOS ends the app on the first microphone access
+         (issue #19). iOS asks once, when an add-on first records. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Add-ons can record your voice, for example to compare your pronunciation or to add recordings to notes.</string>
+
+    <!-- Preferences › Advanced › Background (kioku_platform/location.py):
+         location updates keep add-on servers such as AnkiConnect
+         answering after Kioku leaves the foreground (issue #21) -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>With “Keep running in the background” on, location updates keep Kioku running so add-ons such as AnkiConnect keep answering other apps. Kioku asks for the lowest accuracy and doesn’t use or store your location.</string>
+    <!-- approximate location unless the user turns Precise on: the
+         permission is the whole app's, add-ons included -->
+    <key>NSLocationDefaultAccuracyReduced</key>
+    <true/>
+
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+
+    <key>UIStatusBarHidden</key>
+    <false/>
+
+    <!-- HTTPS only (exempt): no export compliance question per upload -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+</dict>
+</plist>

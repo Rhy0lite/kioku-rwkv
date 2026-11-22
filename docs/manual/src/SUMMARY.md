@@ -1,0 +1,28 @@
+# Summary
+
+[Introduction](intro.md)
+
+- [Which variant?](variants.md)
+- [Installing & Updating](install/intro.md)
+  - [iPhone and iPad](install/ios.md)
+  - [Android, native](install/android.md)
+  - [Android, Termux](install/termux.md)
+  - [Web browser (experimental)](install/web.md)
+  - [Self-hosted server (Docker)](install/self-hosted.md)
+- [Getting Started](getting-started.md)
+- [Using Kioku on a Phone](using/intro.md)
+  - [Native apps (iPhone, Android)](using/native.md)
+  - [Termux desktop](using/termux.md)
+  - [Your Files](using/files.md)
+  - [Add-ons](using/addons.md)
+- [Kioku-only Features](features/intro.md)
+  - [Sync Server on the Phone](features/sync-server.md)
+  - [AnkiDroid's Media](features/ankidroid.md)
+  - [Remote Desktop (Termux)](features/remote-desktop.md)
+  - [kioku:// Links](features/links.md)
+  - [Gamepads and Controllers](features/gamepad.md)
+- [Troubleshooting](troubleshooting.md)
+
+[FAQs](faqs.md)
+[Changes](changes.md)
+[Privacy](privacy.md)

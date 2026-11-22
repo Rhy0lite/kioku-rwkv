@@ -1,0 +1,154 @@
+# Builds the iOS variant (ios/) as an unsigned .ipa and publishes it to a
+# GitHub release.
+#
+# - Push a tag like v0.2.0: release.yml runs this and attaches
+#   Kioku-iOS-0.2.0-unsigned.ipa to the draft release of that tag.
+# - Push to main with changes in ios/ or shared/: builds only, the result is
+#   a workflow artifact.
+# - Run it by hand (Actions → iOS IPA → Run workflow): builds and keeps the
+#   .ipa as a workflow artifact; give a tag to attach it to that
+#   release too (the release must exist).
+#
+# The .ipa is unsigned: install it with a tool that signs apps with your own
+# Apple ID (AltStore, Sideloadly, …). Releases also carry altstore.json, an
+# AltStore source: add
+#   https://github.com/<owner>/<repo>/releases/latest/download/altstore.json
+# in AltStore (Sources → +) to install Kioku and get its updates there.
+name: iOS IPA
+
+on:
+  push:
+    # build only (no release) when the ios code changes on main
+    branches: [main]
+    paths: ["ios/**", "shared/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish to (empty: build only)"
+        required: false
+        default: ""
+  # release.yml: builds for the draft release of a tag
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Tools
+        run: |
+          brew install protobuf swig ninja pkgconf just
+          cargo install --git https://github.com/evmar/n2.git --rev 53ec691df749277104d1d4201a344fe4243d6d0a
+          rustup --version
+
+      - name: Cache Qt and Python
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/deps/qt
+            ios/deps/python-ios
+          key: ios-deps-${{ hashFiles('shared/versions.env') }}
+
+      # programs and packages for add-ons (shared/tools/build_programs.sh,
+      # build_wheels.sh): FFmpeg and co. take a while to build
+      - name: Cache add-on programs and packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/programs/src
+            build/programs/data
+            build/programs/ios
+            build/wheels/ios
+          key: ios-programs-${{ hashFiles('shared/versions.env', 'shared/programs/*', 'shared/tools/build_programs.sh', 'shared/tools/build_wheels.sh') }}
+
+      - name: Cache Rust builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ios/deps/anki/target
+          key: ios-rust-${{ hashFiles('shared/versions.env') }}-${{ github.run_id }}
+          restore-keys: ios-rust-${{ hashFiles('shared/versions.env') }}-
+
+      - name: Version
+        id: version
+        env:
+          tag: ${{ inputs.tag }}
+        run: |
+          if [ -n "$tag" ]; then version="${tag#v}"; else version="0.0.0-${GITHUB_SHA::7}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          KIOKU_THEOS_KIT: 1
+          KIOKU_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # CFBundleVersion must be numeric
+          KIOKU_BUILD=$GITHUB_RUN_NUMBER tools/build.sh
+          mkdir -p dist
+          cp "build/Kioku-$KIOKU_VERSION-unsigned.ipa" \
+             "dist/Kioku-iOS-$KIOKU_VERSION-unsigned.ipa"
+          (cd dist && shasum -a 256 ./*.ipa > SHA256SUMS-ios.txt)
+          ls -l dist
+
+      - name: Export WSL link inputs
+        run: python3 theos/export_kit.py build/xcode-dev build/theos-kit dist/kioku-theos-kit.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kioku-theos-kit
+          path: ios/dist/kioku-theos-kit.tar.gz
+          compression-level: 0
+
+      - name: Build log
+        if: failure()
+        run: tail -200 build/xcode-dev.log || true
+
+      - name: AltStore source
+        if: steps.version.outputs.tag != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          ipa="dist/Kioku-iOS-$VERSION-unsigned.ipa"
+          python3 ../shared/tools/altstore_source.py \
+            --version "$VERSION" --build "$GITHUB_RUN_NUMBER" \
+            --size "$(stat -f %z "$ipa")" --repo "$REPO" \
+            --download "https://github.com/$REPO/releases/download/$TAG/$(basename "$ipa")" \
+            > dist/altstore.json
+          cat dist/altstore.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kioku-iOS-${{ steps.version.outputs.version }}
+          path: |
+            ios/dist/*.ipa
+            ios/dist/SHA256SUMS-ios.txt
+          compression-level: 0
+
+      - name: Attach to the release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release upload "$TAG" dist/*.ipa dist/SHA256SUMS-ios.txt dist/altstore.json --clobber -R "$GITHUB_REPOSITORY"

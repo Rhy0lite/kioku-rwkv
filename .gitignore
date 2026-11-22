@@ -1,0 +1,16 @@
+build/
+.gradle/
+local.properties
+*/build/
+termux/app/src/main/assets/bootstrap-*.zip
+.idea/
+*.iml
+__pycache__/
+*.deb
+.DS_Store
+dist/
+build-testdata/
+.env
+*.p8
+docs/manual/book/
+addons-dump/

@@ -1,0 +1,24 @@
+# Anki's Python dependencies for the iOS and native Android builds (aqt/anki 26.9.4).
+# Pinned at Anki's uv.lock versions (add-ons expect desktop Anki's packages):
+#   shared/tools/anki_pins.py constraints android/deps/anki > c.txt
+#   uv pip compile -p 3.13 -c c.txt shared/requirements.in -o shared/requirements.txt
+decorator
+markdown
+orjson==3.12.0
+protobuf>=6,<8
+requests[socks]
+typing-extensions
+beautifulsoup4
+flask[async]
+jsonschema
+packaging
+send2trash
+truststore>=0.10.4
+waitress>=2.0.0
+markupsafe
+rubicon-objc
+
+# Add-on extras, pure Python (docs/addon-deps.md)
+pygments
+qtpy
+tqdm

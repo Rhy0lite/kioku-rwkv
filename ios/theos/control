@@ -1,0 +1,7 @@
+Package: io.ankidesk.kioku.rwkv
+Name: Kioku RWKV
+Version: 1.0
+Architecture: iphoneos-arm64
+Description: Kioku for iPhone with RWKV Instant.
+Maintainer: Kioku RWKV build
+Section: Applications
