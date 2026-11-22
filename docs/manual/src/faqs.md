@@ -12,10 +12,10 @@ desktop's own Browse, editors and tools on the go.
 **Can I use Kioku and AnkiDroid together?**
 Yes. Sync both with AnkiWeb, or with [the phone's own sync
 server](features/sync-server.md). On Android, a profile can also
-[share AnkiDroid's media folder](features/ankidroid.md).
+share AnkiDroid's media folder.
 
 **Can Kioku open AnkiDroid's collection directly?**
-No: it could lose AnkiDroid's changes. [Why](features/ankidroid.md#why-not-open-ankidroids-collection-directly).
+No: it could lose AnkiDroid's changes. Why.
 
 **Does it cost anything? Is there an account?**
 No. Kioku is free and open source, with no account, ads or tracking. AnkiWeb
@@ -30,7 +30,7 @@ It isn't, and there's no plan for the App Store. Install it from
 Help › About shows it. Kioku 0.2.3 and later have Anki 26.09.3.
 
 **Can I use it on a computer?**
-Yes, in a browser: the [web version](install/web.md) runs in the tab
+Yes, in a browser: the web version runs in the tab
 (experimental), and the [Docker image](install/self-hosted.md) runs Anki
 desktop on your server and shows it in any browser, phones included. On
 your own computer, [Anki desktop](https://apps.ankiweb.net) itself is the

@@ -18,14 +18,6 @@ RADIUS = 28
 OUTLINE = (208, 215, 222, 255)
 
 STRIPS = {
-    "termux": ["termux/docs/screenshots/desktop.png",
-               "termux/docs/screenshots/anki-decks.png",
-               "termux/docs/screenshots/anki-review.png",
-               "termux/docs/screenshots/software.png"],
-    "android": ["docs/images/android-decks.png",
-                "docs/images/android-review-hanzi-answer.png",
-                "docs/images/android-browse.png",
-                "docs/images/android-stats.png"],
     "ios": ["docs/images/ios-decks.png",
             "docs/images/ios-review-hanzi-answer.png",
             "docs/images/ios-review-neetcode-question.png",

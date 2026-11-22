@@ -1,9 +1,0 @@
-{
-  "name": "kioku-web-test",
-  "private": true,
-  "type": "module",
-  "description": "Headless-Chrome driver for Kioku's web build (boot.mjs)",
-  "dependencies": {
-    "puppeteer-core": "23.11.1"
-  }
-}

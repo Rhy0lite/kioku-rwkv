@@ -437,7 +437,7 @@ Not done: big collection timings, Samsung M30s, device reboots.
 
 ## Syncing when switching apps, AnkiDroid's collection explained (2026-10-23)
 
-Guide: [sync-server.md](manual/src/features/ankidroid.md#syncing-when-you-switch-between-kioku-and-ankidroid).
+Guide: sync-server.md.
 
 Host tests: 68 passing. New (`test_switchsync.py`, real sync server, a
 second collection standing in for AnkiDroid): when it applies (phone's

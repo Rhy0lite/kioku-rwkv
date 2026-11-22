@@ -74,12 +74,12 @@ installing and after each update.
 
 Use the buttons on the error screen: **Retry**, **Safe mode** (Anki without
 add-ons), **Repair runtime** (decks kept), **Share log**. See
-[Termux desktop](using/termux.md#if-start-up-fails).
+Termux desktop.
 
 ### A Linux app doesn't scroll or select as expected
 
 Switch Settings › Touch screen / Mouse pad. See
-[Termux desktop](using/termux.md#touch-screen-or-mouse-pad).
+Termux desktop.
 
 ## Self-hosted server (Docker)
 

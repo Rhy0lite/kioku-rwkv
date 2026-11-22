@@ -1,7 +1,7 @@
 #!/bin/bash
 # Host tests for Kioku's Python code (shared/tests) on the build machine:
 # desktop Anki's Python packages in a venv, with an rsbridge built from
-# android/deps/anki (Anki at ANKI_TAG with shared/patches/ applied). No device
+# build/host-tests/anki (Anki at ANKI_TAG with shared/patches/ applied). No device
 # needed.
 # Usage: shared/tests/run.sh [pytest args]
 # Env: PYTHON (default python$PYTHON_VERSION from shared/versions.env, Anki's),
@@ -9,11 +9,12 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 source "$ROOT/shared/versions.env"
-ANKI_SRC=$ROOT/android/deps/anki
+ANKI_SRC=$ROOT/build/host-tests/anki
 WORK=$ROOT/build/host-tests
 VENV=$WORK/venv
 PYTHON=${PYTHON:-python$PYTHON_VERSION}
 
+mkdir -p "$WORK"
 "$ROOT/shared/tools/anki_source.sh" "$ANKI_SRC"
 
 venv_python=$("$VENV/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true)

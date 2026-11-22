@@ -5,14 +5,14 @@ Every release is on [GitHub Releases](https://github.com/krmanik/kioku/releases/
 | File | Variant |
 | --- | --- |
 | `Kioku-iOS-<version>-unsigned.ipa` | [iPhone and iPad](ios.md) |
-| `Kioku-Android-<version>-arm64.apk` | [Android, native](android.md) |
-| `Kioku-Termux-<version>-arm64.apk` | [Android, Termux](termux.md) |
+| `Kioku-Android-<version>-arm64.apk` | Android, native |
+| `Kioku-Termux-<version>-arm64.apk` | Android, Termux |
 
 Without installing an app:
 
 | Where | |
 | --- | --- |
-| [kioku.krmanik.workers.dev](https://kioku.krmanik.workers.dev) | [Web browser](web.md) (experimental) |
+| [kioku.krmanik.workers.dev](https://kioku.krmanik.workers.dev) | Web browser (experimental) |
 | `ghcr.io/krmanik/kioku-desktop` | [Self-hosted server](self-hosted.md) (Docker) |
 
 Kioku isn't in the App Store or Google Play. On iPhone and iPad it's also on

@@ -32,7 +32,7 @@ collections.
 | **Add-ons** | most pure-Python ones | yes, as on Linux |
 | **Pick it if** | you want to try Kioku without installing anything | you want one Anki, with a large collection and your add-ons, from every device |
 
-See [Web browser](install/web.md) and [Self-hosted server](install/self-hosted.md).
+See Web browser and [Self-hosted server](install/self-hosted.md).
 
 ## iPhone and iPad
 

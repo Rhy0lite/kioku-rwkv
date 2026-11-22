@@ -213,9 +213,9 @@ New:
   Kioku's profiles and Anki on your computers can sync with the phone instead
   of AnkiWeb. [Guide](features/sync-server.md).
 - **AnkiDroid's media** (Android): a profile can use AnkiDroid's media folder, and
-  syncs when you switch between the apps. [Guide](features/ankidroid.md).
+  syncs when you switch between the apps. Guide.
 - **Remote desktop** (Termux): use the phone's Anki from a computer's web browser
-  or VNC viewer. [Guide](features/remote-desktop.md).
+  or VNC viewer. Guide.
 - **`{{tts}}` text-to-speech** with the phone's voices (iOS, Android).
 - **Statistics › Save PDF** on iPhone (iOS).
 - **Ogg/Opus card audio** on iPhone (iOS).
