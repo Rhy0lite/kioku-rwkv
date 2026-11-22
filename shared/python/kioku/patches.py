@@ -66,6 +66,12 @@ def apply() -> None:
     _patch_full_screen()
     _patch_screen_edges()
     _patch_native_menu_bar()
+    install_study_ui = getattr(platform, "install_study_ui", None)
+    if install_study_ui:
+        try:
+            install_study_ui()
+        except Exception:
+            logging.getLogger("kioku").exception("iOS study interface")
     _patch_main_view_width()
     _patch_splitters()
     _patch_docks()

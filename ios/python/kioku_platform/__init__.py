@@ -148,6 +148,12 @@ def install_done_bar(app: Any) -> None:
     install(app)
 
 
+def install_study_ui() -> None:
+    from .studyui import register
+
+    register()
+
+
 def install_menu_bar(mw: Any) -> bool:
     """Anki's menus in the iPadOS menu bar (menubar.py); False where there
     is none."""
