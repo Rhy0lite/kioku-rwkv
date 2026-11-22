@@ -1,0 +1,48 @@
+name: Browser RWKV
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/browser-wasm.yml"]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build dependencies and matching fork packages
+        run: |
+          brew install protobuf ninja swig pkgconf just python@3.14
+          rustup toolchain install nightly --component rust-src
+          ios/tools/fetch_deps.sh
+          (cd ios/deps/anki && cargo fetch --locked)
+          mkdir -p ios/build web/build
+          KIOKU_FORK_SOURCE="$PWD/ios/deps/anki" shared/tools/prepare_site.sh "$PWD/ios/.venv/bin/python" "$PWD/ios/deps/sdist" "$PWD/ios/build/site"
+          uvx --from aqtinstall aqt install-qt mac desktop 6.11.0 clang_64 --archives qtbase qtsvg -O ios/deps/qt
+      - name: Compile the RWKV browser app
+        working-directory: web
+        run: |
+          tools/fetch_deps.sh
+          tools/build_python.sh
+          tools/build_rust.sh
+          tools/build_rpds.sh
+          tools/build_orjson.sh
+          tools/gen_pyqt.sh
+          tools/prepare_site.sh
+          test -s build/site/aqt/rwkv_inference/sm106/weights.f32.bin
+          tools/build.sh
+          test -s build/cmake/kioku.wasm
+          mkdir -p build/site-release
+          cd build/cmake
+          cp app.html kioku-web.js sw.js manifest.webmanifest kioku.js qtloader.js app.data app-data.js.metadata kioku.wasm kioku.data ../site-release/
+          cp -R icons ../site-release/
+          cp app.html ../site-release/index.html
+          printf '/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n' > ../site-release/_headers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kioku-RWKV-browser
+          path: web/build/site-release/
+          if-no-files-found: error

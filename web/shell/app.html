@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=0">
+    <title>Kioku</title>
+    <!-- installable: Add to Home Screen (iOS Safari), Install app (Chrome) -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/kioku-192.png">
+    <link rel="apple-touch-icon" href="icons/kioku-180.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Kioku">
+    <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#2c2c2c" media="(prefers-color-scheme: dark)">
+    <style>
+      /* Anki's background; follows the system until Anki says its theme
+         (data-theme, from kioku-web.js theme()) */
+      :root { --background: #f5f5f5; }
+      @media (prefers-color-scheme: dark) { :root { --background: #2c2c2c; } }
+      :root[data-theme="light"] { --background: #f5f5f5; }
+      :root[data-theme="dark"] { --background: #2c2c2c; }
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100%; background: var(--background); }
+      #screen { width: 100%; height: 100%; }
+      #status { font: 15px system-ui, sans-serif; color: #555; text-align: center; margin-top: 30vh; }
+      #status progress { display: block; width: 240px; max-width: calc(100% - 32px); margin: 12px auto 0; }
+      #warning .progress { float: left; margin-top: 9px; color: #777; }
+      #warning { max-width: 480px; width: calc(100% - 32px); box-sizing: border-box; padding: 24px;
+        border: 0; border-radius: 12px; font: 15px/1.5 system-ui, sans-serif; color: #222; background: #fff;
+        box-shadow: 0 12px 40px rgb(0 0 0 / 0.25); }
+      #warning::backdrop { background: rgb(0 0 0 / 0.4); }
+      #warning h2 { margin: 0 0 12px; font-size: 18px; }
+      #warning ul { margin: 0 0 20px; padding-left: 20px; }
+      #warning li { margin-bottom: 8px; }
+      #warning form { text-align: right; margin: 0; }
+      #warning button { font: inherit; font-weight: 600; padding: 8px 28px; border: 0; border-radius: 8px;
+        color: #fff; background: #2563eb; cursor: pointer; }
+      /* iOS 27 draws a blur over the top edge of a home screen app; a
+         fixed element painted there (invisibly: text clip, no text) stops it.
+         iOS takes the status bar's color from it */
+      @media (display-mode: standalone) {
+        #ios-top { position: fixed; inset: 0 0 auto; height: 11px; z-index: 1; pointer-events: none;
+          background: var(--background); -webkit-background-clip: text; background-clip: text; }
+      }
+      @media (prefers-color-scheme: dark) {
+        #status { color: #aaa; }
+        #warning .progress { color: #aaa; }
+        #warning { color: #eee; background: #3a3a3a; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status"><span>Loading Kioku…</span><progress hidden></progress></div>
+    <dialog id="warning">
+      <h2>Experimental: for testing only</h2>
+      <ul>
+        <li>This is an early, unstable version of Anki running in your browser. It may crash or lose data.</li>
+        <li><b>Back up first.</b> Before using a collection you care about, export it with scheduling
+          information from Anki desktop or your phone (File › Export: a .colpkg, or an .apkg with
+          “Include scheduling information”).</li>
+        <li><b>Sync with a test AnkiWeb account</b>, not the one you actually use.</li>
+        <li>Your data stays in this browser; clearing site data deletes it.</li>
+      </ul>
+      <form method="dialog"><span class="progress"></span><button autofocus>OK</button></form>
+    </dialog>
+    <div id="screen" style="display: none"></div>
+    <div id="ios-top" aria-hidden="true"></div>
+    <script src="kioku-web.js"></script>
+    <script src="kioku.js"></script>
+    <script src="qtloader.js"></script>
+    <script>
+      // shown on every visit while the app loads behind it
+      const warning = document.querySelector("#warning");
+      warning.showModal();
+      // without persistent storage the browser may delete the collection
+      // (IndexedDB) when the disk runs low; Firefox asks, Chrome decides
+      // by itself. After OK, so it counts as the user's gesture
+      warning.addEventListener("close", () => {
+        navigator.storage?.persist?.().then((granted) => console.log("Kioku: persistent storage", granted));
+      });
+      // download progress of the wasm and the data packages, counted as
+      // their bodies arrive (Emscripten's own counter takes Content-Length,
+      // which on Cloudflare is the brotli-compressed size: tools/dist.sh
+      // writes the real sizes to sizes.json)
+      const progress = (function () {
+        const names = ["kioku.wasm", "kioku.data", "app.data"];
+        const downloads = {};
+        const text = document.querySelector("#status span");
+        const bar = document.querySelector("#status progress");
+        const note = document.querySelector("#warning .progress");
+        const sizes = fetch("sizes.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+        const show = () => {
+          const all = Object.values(downloads);
+          const loaded = all.reduce((sum, d) => sum + d.loaded, 0);
+          const total = all.reduce((sum, d) => sum + d.total, 0);
+          if (all.length === names.length && all.every((d) => d.done)) {
+            text.textContent = "Starting Kioku…";
+            bar.hidden = true;
+            note.textContent = "Starting…";
+          } else if (total && all.every((d) => d.total)) {
+            const percent = Math.min(99, Math.floor((100 * loaded) / total));
+            text.textContent = `Downloading Kioku… ${percent}%`;
+            bar.hidden = false;
+            bar.max = total;
+            bar.value = loaded;
+            note.textContent = `Downloading… ${percent}%`;
+          } else {
+            const mb = (loaded / 1e6).toFixed(0);
+            text.textContent = `Downloading Kioku… ${mb} MB`;
+            note.textContent = `Downloading… ${mb} MB`;
+          }
+        };
+        const realFetch = window.fetch;
+        window.fetch = async function (input, init) {
+          const response = await realFetch.call(this, input, init);
+          const name = new URL(input.url ?? input, location.href).pathname.split("/").pop();
+          if (!names.includes(name) || !response.ok || !response.body) return response;
+          const length = Number(response.headers.get("Content-Length"));
+          const size = (await sizes)[name] ?? (response.headers.has("Content-Encoding") ? 0 : length);
+          const download = (downloads[name] = { loaded: 0, total: size || 0, done: false });
+          show();
+          const counted = response.body.pipeThrough(
+            new TransformStream({
+              transform(chunk, controller) {
+                download.loaded += chunk.byteLength;
+                show();
+                controller.enqueue(chunk);
+              },
+              flush() {
+                download.done = true;
+                show();
+              },
+            }),
+          );
+          // headers kept: compileStreaming needs Content-Type application/wasm
+          const { status, statusText, headers } = response;
+          return new Response(counted, { status, statusText, headers });
+        };
+        return { done: () => { window.fetch = realFetch; note.textContent = ""; } };
+      })();
+      // Threads need shared memory, whose maximum size is reserved up front.
+      // Emscripten asks for 4 GB, which iOS Safari may refuse ("RangeError:
+      // Out of memory"); take the largest that works (the module accepts a
+      // smaller maximum than it declares). The heap grows up to it, and stays
+      // at a few hundred MB (files live in JavaScript, storage.js). On an
+      // iPhone a 4 GB reservation got the tab killed at most starts, 1 GB
+      // didn't: phones take 1 GB. ?memory=MB to try another size
+      function sharedMemory() {
+        const asked = Number(new URLSearchParams(location.search).get("memory"));
+        const phone = /iPhone|iPad|iPod|Android|Mobile/.test(navigator.userAgent);
+        const sizes = asked > 0 ? [asked] : phone ? [1024, 512] : [4096, 2048, 1024, 512];
+        for (const mb of sizes) {
+          try {
+            const memory = new WebAssembly.Memory({ initial: 800, maximum: Math.min(mb * 16, 65536), shared: true });
+            console.log(`Kioku: memory up to ${mb} MB`);
+            return memory;
+          } catch (e) {
+            if (!(e instanceof RangeError)) throw e;
+          }
+        }
+        return undefined;
+      }
+      // Web Workers made up front for threads (the app runs about 10; more
+      // are made when needed), each ~55 MB: phones get few (32 got the tab
+      // killed on an iPhone). ?threads=N to try another number
+      function threads() {
+        const asked = Number(new URLSearchParams(location.search).get("threads"));
+        if (asked > 0) return asked;
+        return /iPhone|iPad|iPod|Android|Mobile/.test(navigator.userAgent) ? 12 : 16;
+      }
+      (async function () {
+        const status = document.querySelector("#status");
+        const screen = document.querySelector("#screen");
+        try {
+          // Anki's pages are served by the service worker (sw.js), which
+          // passes their requests to Python; it must control the page's
+          // iframes before the first one loads
+          await navigator.serviceWorker.register("sw.js");
+          await navigator.serviceWorker.ready;
+          await qtLoad({
+            arguments: ["--kioku"],
+            wasmMemory: sharedMemory(),
+            kiokuThreads: threads(),
+            qt: {
+              onLoaded: () => {
+                progress.done();
+                status.style.display = "none";
+                screen.style.display = "block";
+              },
+              onExit: (exit) => {
+                progress.done();
+                status.textContent = "Kioku has stopped" + (exit.text ? `: ${exit.text}` : ".");
+                status.style.display = "block";
+                screen.style.display = "none";
+              },
+              entryFunction: window.kioku_entry,
+              containerElements: [screen],
+            },
+          });
+        } catch (e) {
+          console.error(e);
+          status.textContent = `Kioku could not start: ${e}`;
+        }
+      })();
+    </script>
+  </body>
+</html>
